@@ -1,0 +1,23 @@
+%YAML:1.0
+frameCount: 12
+calibrationDate: "Mon Feb 26 23:28:29 2018\n"
+cameraMatrix: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 1.366921175795496e+03., 0., 0., -1.10173376284206, 1.368015379553626e+03, 0., 6.239050374734363e+02, 5.034952444364909e+02, 1. ]
+distCoeffs: !!opencv-matrix
+   rows: 1
+   cols: 3
+   dt: d
+   data: [ -0.115656060218434, 0.544812695056689, -1.461388585218684]
+focalLength: !!opencv-matrix
+   rows: 1
+   cols: 2
+   dt: d
+   data: [1.366921175795496e+03,1.368015379553626e+03]
+principalPoint: !!opencv-matrix
+   rows:1
+   cols:2
+   dt: d
+   data: [6.239050374734363e+02,5.034952444364909e+02]
