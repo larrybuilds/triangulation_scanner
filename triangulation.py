@@ -6,94 +6,66 @@ import random
 import pigpio
 import cv2
 
-# Define servo pin number
-SERVO_PIN = 18
+class triangulation:
+    
+    def __init__(self):
+        self.servo_pin = 18
+        self.min_width = 550
+        self.max_width = 2330
+        self.ang2pulse = (self.max_width-self.min_width)/180.0
+        self.pulse2ang = 1.0/self.ang2pulse
+        
+        self.step = 0.5*self.ang2pulse
+        self.width = self.min_width
 
-# Zero angle pulse width
-MIN_WIDTH=550
-# Max angle (180 deg) pulse width
-MAX_WIDTH=2330
+        self.pi = pigpio.pi()
+        if not self.pi.connected:
+            exit()
 
-# Angle to pulse conversion
-ANG_TO_PULSE = (MAX_WIDTH-MIN_WIDTH)/180
-# Pulse to angle conversion
-PULSE_TO_ANG = 1/ANG_TO_PULSE
+        self.pi.set_servo_pulsewidth(self.servo_pin, self.width)
+        time.sleep(5)
 
-# Define step as 1 degree (converting to pulse)
-step = 1*ANG_TO_PULSE
-# Initialize starting width
-width = MIN_WIDTH
+        self.cam = cv2.VideoCapture(0)
+        cv2.startWindowThread()
+        cv2.namedWindow("webcam")
 
-# Initialize pigpio
-pi = pigpio.pi()
+    def updateFrame(self):            
+        ret_val, img = self.cam.read()
+        cv2.imshow("webcam",img)
 
-# Make sure pigpio initialization was successful
-if not pi.connected:
-   exit()
+    def incrementLaser(self):
+        # Set servo pulse width
+        self.pi.set_servo_pulsewidth(self.servo_pin, self.width)
+        # Increment pulse width
+        self.width += self.step
+        # Bound the pulse width within min/max and invert the step when boundary
+        # reached
+        if self.width < self.min_width or self.width > self.max_width:
+            self.step = -self.step
+            self.width += self.step
 
-# Move servo to initial position
-pi.set_servo_pulsewidth(SERVO_PIN, width)
-time.sleep(0.5)
+        print self.width
 
-# Define camera object
-cam = cv2.VideoCapture(0)
+    def run(self):
+        while True:
+            try:
+                # Grab next image and display it
+                self.updateFrame()
+                # Move laser to next position
+                self.incrementLaser()
+                # Delay for next frame
+                time.sleep(0.1)
+            except KeyboardInterrupt:
+                break
 
-def updateFrame():
-	ret_val, img = cam.read()
-	cv2.imshow("webcam",img)
+        self.pi.set_servo_pulsewidth(self.servo_pin, 0)
+        # Stop pigpio
+        self.pi.stop()
+        cv2.destroyAllWindows()
 
-def incrementLaser():
-	# Set servo pulse width
-	pi.set_servo_pulsewidth(SERVO_PIN, width)
-	# Increment pulse width
-	width += step
-	# Bound the pulse width within min/max and invert the step when boundary
-	# reached
-	if width < MIN_WIDTH or width > MAX_WIDTH:
-		step = -step
-		width += step
+if __name__=='__main__':
+    tr = triangulation()
+    tr.run()
 
-def run():
-    while True:
-        try:
-            # Grab next image and display it
-            updateFrame()
-            # Move laser to next position
-            incrementLaser()
-            # Delay for next frame
-            time.sleep(0.1)
-        except KeyboardInterrupt:
-    		break
+    
 
-    pi.set_servo_pulsewidth(SERVO_PIN, 0)
-    # Stop pigpio
-    pi.stop()
-
-if __name__='__main__':
-    run()
-
-'''
-# Run until keyboard interrupt
-while True:
-
-	try:
-		# Set servo pulse width
-		pi.set_servo_pulsewidth(SERVO_PIN, width)
-		# Increment pulse width
-		width += step
-		# Bound the pulse width within min/max and invert the step when boundary
-		# reached
-		if width < MIN_WIDTH or width > MAX_WIDTH:
-			step = -step
-			width += step
-		# Delay to slow rotation
-		time.sleep(0.1)
-
-	except KeyboardInterrupt:
-		break
-
-# Set pulse width to zero
-pi.set_servo_pulsewidth(SERVO_PIN, 0)
-# Stop pigpio
-pi.stop()
-'''
