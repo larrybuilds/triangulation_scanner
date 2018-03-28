@@ -16,40 +16,43 @@ import pigpio
 import cv2
 import imutils
 import numpy as np
-#import matplotlib.pyplot as plt
-#import matplotlib
-
+import matplotlib as mpl
+#mpl.use('Agg')
+import matplotlib.pyplot as plt
 class triangulation:
     
     def __init__(self):
-        # Define system properties
+        plt.ion()
+	self.fig = plt.figure()
+	plt.axis([-9,-20,-5,5])
+	# Define system properties
         self.servo_pin = 18
         self.laser_pin = 16
         self.min_width = 550
         self.max_width = 2330
         self.perp_pulse = 1863
         self.baseline = 81.6
-        self.focal = 1366.921175795496
+        self.focalx = 1366.921175795496
+	self.focaly = 1368.015379553626
         self.ang2pulse = (self.max_width-self.min_width)/180.0
         self.pulse2ang = 1.0/self.ang2pulse
         self.low_ang = 1400
         self.hi_ang = 2100
 
+	# Calibration parameters
         self.px = 623.9050374734363
         self.py = 503.4952444364909
         self.u1 = 351.0 - self.px
         self.u2 = 216.0 - self.px
-        self.x1 = 17
-        self.x2 = 11
+        self.x1 = 17.0
+        self.x2 = 11.0
 
-        self.d = self.x2-self.x1
-        self.k = self.u2*self.x2 - self.u1*self.x1
-        self.N = (self.u1-self.u2)*self.x1*self.x2
+	self.update_extrinsics() 
 
         # Control variables for rotary motion
         self.step = 2.0*self.ang2pulse
         self.width = self.perp_pulse# - 197.777777778
-        
+
         # Initialize the gpio class
         self.pi = pigpio.pi()
         if not self.pi.connected:
@@ -86,9 +89,9 @@ class triangulation:
         self.cam.set(cv2.cv.CV_CAP_PROP_FPS,30)
 
         # Create window to display image in
-        cv2.startWindowThread()
-        cv2.namedWindow("webcam")
-        cv2.setMouseCallback("webcam",self.onMouse)
+        #cv2.startWindowThread()
+        #cv2.namedWindow("webcam")
+        #cv2.setMouseCallback("webcam",self.onMouse)
         self.print_px_color = False
 
     def updateFrame(self):            
@@ -97,23 +100,22 @@ class triangulation:
         #lb = np.array([0,0,200])
         #hb = np.array([150,150,255])
         #redline = cv2.inRange(img,lb,hb)
-        #maxCol = np.amax(img[:,:,0],axis=1)
-        maxInd = np.argmax(img[:,:,2],axis=1)
+        maxCol = np.amax(img[:,:,2],axis=0)
+        maxInd = np.argmax(img[:,:,2],axis=0)
+
         ind = []
-        for idx, val in enumerate(maxInd):
-            if val > 175:
-                ind.append([idx,maxInd[idx]],)
+        for idx, val in enumerate(maxCol):
+            if val > 150:
+                ind.append([float(idx),float(maxInd[idx])])
+	#test	
+	#ind[1:260] = [326.0]*(260-1)
+	#ind[261:769] = [211.5]*(769-261)
+	#ind[770:960] = [228.0]*(960-770)
 
-        #print(ind)
-        #dispImg = img;
-        #dispImg[ind[:][0],ind[:][1],0] = 255
-        #dispImg[ind[:][0],ind[:][1],1] = 0
-        #dispImg[ind[:][0],ind[:][1],2] = 0
-
-        #plotPoints(ind)
-        red = img[:,:,2] > 100
-        img[red] = [0,255,0]
-        cv2.imshow("webcam",imutils.rotate(img,270))
+        self.plotPoints(ind)
+        #red = img[:,:,2] > 100
+        #img[red] = [0,255,0]
+        #cv2.imshow("webcam",imutils.rotate(img,270))
         if self.print_px_color == True:
             print("X(%d) Y(%d) RGB(%d,%d,%d)"%(self.x,self.y,img[self.y,self.x,0],img[self.y,self.x,1],img[self.y,self.x,2]))
             self.print_px_color = False
@@ -136,14 +138,31 @@ class triangulation:
             self.step = -self.step
             self.width += self.step
 
-    #def plotPoints(self,ind):
-        #x = []
-        #y = []
-        #for idx,i in ind:
-        #    x.append(self.N/((i[1]-self.px)*d-k))
-        #    y.append((self.py-i[0])/(self.focal)*x[idx])
-        #plt.scatter(x,y)
-        #plt.show()
+    def plotPoints(self,ind):     
+        x = []
+        y = []
+        for idx,i in enumerate(ind):
+            xtemp = self.N/((i[1]-self.py)*self.d-self.k)
+            ytemp = (i[0]-self.px)/(self.focalx)*xtemp
+
+            if np.abs(xtemp) < 50 and np.abs(ytemp) < 50:
+                x.append(xtemp)
+                y.append(ytemp)
+	#print(x)
+	#print(y)
+	plt.cla()
+        plt.scatter(x,y,marker=".",color='r')
+	plt.axis('equal')
+	#plt.axis([-9,-15,-5,5])
+	plt.xlabel('X(in)')
+	plt.ylabel('Y(in)')
+	plt.show()
+	plt.pause(0.05)
+
+    def update_extrinsics(self):
+	self.d = self.x2-self.x1
+        self.k = self.u2*self.x2 - self.u1*self.x1
+        self.N = (self.u1-self.u2)*self.x1*self.x2
 
     def run(self):
         while True:
